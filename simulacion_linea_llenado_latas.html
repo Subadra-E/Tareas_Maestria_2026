@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulación de llenado de latas</title>
+<style>
+:root{--bg:#eef2f5;--panel:#fff;--ink:#263238;--muted:#607d8b;--blue:#1976d2;--liquid:#4fc3f7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--ink)}
+.wrap{max-width:1100px;margin:auto;padding:22px}.panel{background:var(--panel);border-radius:16px;padding:20px;box-shadow:0 4px 18px #0001}
+h1{text-align:center;margin:0 0 6px}.sub{text-align:center;color:var(--muted);margin-bottom:20px}
+.scene{height:430px;position:relative;overflow:hidden;border:2px solid #b0bec5;border-radius:14px;background:linear-gradient(#fafafa 0 68%,#d5dde1 68%)}
+.belt{position:absolute;left:3%;right:3%;bottom:45px;height:70px;background:#37474f;border:5px solid #263238;border-radius:8px}
+.belt:after{content:"";position:absolute;inset:27px 0 auto;height:10px;background:repeating-linear-gradient(90deg,#90a4ae 0 32px,transparent 32px 64px);animation:move 1s linear infinite}
+@keyframes move{to{background-position:-64px 0}}
+.station{position:absolute;top:22px;width:205px;height:215px;background:white;border:2px solid #b0bec5;border-radius:12px;text-align:center;padding:10px;z-index:2}
+.s1{left:2%}.s2{left:28%}.s3{left:54%}.s4{right:2%}
+.station h3{font-size:17px;margin:4px}.icon{font-size:48px;height:70px;display:flex;justify-content:center;align-items:center}
+.small{font-size:13px;color:var(--muted);line-height:1.35}
+.machine{width:110px;height:70px;margin:10px auto;border:4px solid #455a64;border-radius:10px;background:#cfd8dc;position:relative}
+.nozzle{position:absolute;width:24px;height:45px;background:#546e7a;left:39px;top:64px;border-radius:4px}
+.nozzle:after{content:"";position:absolute;left:8px;top:42px;width:8px;height:35px;background:var(--liquid);border-radius:0 0 6px 6px;animation:drop .55s infinite alternate}
+@keyframes drop{to{height:10px;transform:translateY(25px)}}
+.sensor{margin:12px auto;width:130px;height:72px;border:4px solid #455a64;border-radius:8px;background:#eceff1;display:flex;align-items:center;justify-content:center;font-weight:bold}
+.can{position:absolute;z-index:5;bottom:87px;left:5%;width:42px;height:74px;border:3px solid #546e7a;border-radius:9px 9px 12px 12px;background:linear-gradient(90deg,#b0bec5,#eceff1,#90a4ae);transition:left .45s ease}
+.can:before{content:"";position:absolute;left:3px;right:3px;top:4px;height:9px;border:2px solid #546e7a;border-radius:50%;background:#cfd8dc}
+.fill{position:absolute;left:5px;right:5px;bottom:5px;height:0;background:var(--liquid);border-radius:0 0 6px 6px;transition:height 1s}
+.status{text-align:center;font-weight:bold;min-height:24px;margin:14px 0}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#fafafa;border:1px solid #cfd8dc;border-radius:10px;text-align:center;padding:12px}.metric strong{display:block;font-size:18px}
+.controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}button{border:0;border-radius:10px;padding:12px 20px;font-size:16px;cursor:pointer;background:#eceff1;color:#263238}button.primary{background:var(--blue);color:white}button:disabled{opacity:.5;cursor:not-allowed}
+.note{margin-top:16px;padding:12px;background:#f5f7f8;border-left:4px solid var(--blue);font-size:14px;line-height:1.5}
+@media(max-width:800px){.scene{height:500px}.station{width:44%;height:155px;padding:7px}.station h3{font-size:14px}.icon{font-size:32px;height:38px}.small{font-size:11px}.s1{left:2%}.s2{left:auto;right:2%}.s3{left:2%;top:190px}.s4{left:auto;right:2%;top:190px}.belt{bottom:75px}.can{bottom:117px}.metrics{grid-template-columns:repeat(2,1fr)}}
+@media(prefers-reduced-motion:reduce){.belt:after,.nozzle:after{animation:none}.can{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="panel">
+<h1>Línea de llenado de latas de gaseosa</h1>
+<div class="sub">Simulación esquemática del proceso de llenado y control del volumen</div>
+<div class="scene" aria-label="Animación del proceso de llenado">
+<section class="station s1"><h3>1. Alimentación</h3><div class="icon">🥫</div><div class="small">Ingreso de latas vacías a la banda transportadora.</div></section>
+<section class="station s2"><h3>2. Llenado</h3><div class="machine"><div class="nozzle"></div></div><div class="small">Dosificación de gaseosa</div><div class="small"><b>Objetivo: 355 ml</b></div></section>
+<section class="station s3"><h3>3. Verificación</h3><div class="sensor" id="display">355.0 ml</div><div class="small">Medición del volumen de llenado.</div></section>
+<section class="station s4"><h3>4. Clasificación</h3><div class="icon" id="classificationIcon">🥫✓</div><div class="small" id="classificationText">La lata conforme continúa a la salida.</div></section>
+<div class="belt"></div><div class="can" id="can"><div class="fill" id="fill"></div></div>
+</div>
+<div class="status" id="status">Estado: listo para iniciar</div>
+<div class="status" id="decision" style="color:#607d8b">Decisión: pendiente de verificación</div>
+<div class="metrics">
+<div class="metric"><strong>355 ml</strong>Valor nominal</div>
+<div class="metric"><strong>350 ml</strong>LIE</div>
+<div class="metric"><strong>360 ml</strong>LSE</div>
+<div class="metric"><strong id="current">355.0 ml</strong>Lectura actual</div>
+</div>
+<div class="controls"><button class="primary" id="start">▶ Iniciar proceso</button><button id="pause">Ⅱ Pausar</button><button id="reset">↺ Reiniciar</button></div>
+<div class="note"><b>Nota:</b> representación visual simplificada para el proyecto. La lectura varía ligeramente alrededor de 355 ml para representar la variación natural del proceso.</div>
+</div></div>
+<script>
+(()=>{const can=document.querySelector("#can"),fill=document.querySelector("#fill"),status=document.querySelector("#status"),decision=document.querySelector("#decision"),display=document.querySelector("#display"),current=document.querySelector("#current"),classificationIcon=document.querySelector("#classificationIcon"),classificationText=document.querySelector("#classificationText"),start=document.querySelector("#start"),pause=document.querySelector("#pause"),reset=document.querySelector("#reset");const pos=["5%","31%","57%","88%"];let timer=null,step=0,running=false,paused=false;
+function msg(t){status.textContent="Estado: "+t}
+function reading(){
+  // Genera ocasionalmente un volumen fuera de especificaciones
+  let v;
+  if(Math.random()<0.35){
+    v=Math.random()<0.5 ? 348+Math.random()*1.8 : 360.2+Math.random()*2.2;
+  }else{
+    v=353.5+Math.random()*3;
+  }
+  display.textContent=v.toFixed(1)+" ml";
+  current.textContent=v.toFixed(1)+" ml";
+  const ok=v>=350 && v<=360;
+  decision.textContent=ok ? "Decisión: CONFORME — continúa a la salida" : "Decisión: NO CONFORME — enviada a reproceso";
+  decision.style.color=ok ? "#2e7d32" : "#c62828";
+  classificationIcon.textContent=ok ? "🥫✓" : "🥫↩";
+  classificationText.textContent=ok ? "La lata cumple y continúa a la salida." : "La lata no cumple y se desvía a reproceso.";
+  return ok;
+}
+function restart(){clearTimeout(timer);timer=null;step=0;running=false;paused=false;can.style.left=pos[0];fill.style.height="0";display.textContent="355.0 ml";current.textContent="355.0 ml";decision.textContent="Decisión: pendiente de verificación";decision.style.color="#607d8b";classificationIcon.textContent="🥫✓";classificationText.textContent="La lata conforme continúa a la salida.";msg("listo para iniciar");start.disabled=false;pause.textContent="Ⅱ Pausar"}
+function advance(){if(!running||paused)return;step++;if(step===1){can.style.left=pos[0];msg("alimentando la línea...");timer=setTimeout(advance,900)}else if(step===2){can.style.left=pos[1];fill.style.height="48px";msg("llenando la lata...");timer=setTimeout(advance,1200)}else if(step===3){can.style.left=pos[2];const ok=reading();msg("verificando volumen...");timer=setTimeout(advance,1100)}else if(step===4){can.style.left=pos[3];const isReject=decision.textContent.includes("NO CONFORME");msg(isReject ? "lata desviada a reproceso" : "lata conforme liberada");timer=setTimeout(()=>{if(running){step=0;fill.style.height="0";can.style.left=pos[0];msg("siguiente lata...");timer=setTimeout(advance,700)}},1300)}}
+start.onclick=()=>{if(running)return;running=true;paused=false;step=0;start.disabled=true;msg("iniciando proceso...");advance()}
+pause.onclick=()=>{if(!running)return;paused=!paused;if(paused){clearTimeout(timer);msg("pausado");pause.textContent="▶ Continuar"}else{pause.textContent="Ⅱ Pausar";msg("continuando...");advance()}}
+reset.onclick=restart;restart()})();
+</script>
+</body>
+</html>
